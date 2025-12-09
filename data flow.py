@@ -2,28 +2,22 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.express as px
-import plotly.figure_factory as ff
 import pickle
 from io import BytesIO
 
 # Machine Learning
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler, MinMaxScaler, LabelEncoder
-from sklearn.impute import SimpleImputer
-from sklearn.linear_model import LinearRegression, LogisticRegression, Ridge, Lasso
-from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier, GradientBoostingClassifier, GradientBoostingRegressor
-from sklearn.svm import SVC, SVR
-from sklearn.neighbors import KNeighborsClassifier, KNeighborsRegressor
-from sklearn.neural_network import MLPRegressor, MLPClassifier
-from sklearn.metrics import (accuracy_score, r2_score, mean_squared_error, mean_absolute_error, 
-                             confusion_matrix, classification_report)
+from sklearn.preprocessing import StandardScaler, LabelEncoder
+from sklearn.linear_model import LinearRegression, LogisticRegression
+from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
+from sklearn.metrics import accuracy_score, r2_score, mean_absolute_error, confusion_matrix
 
 # --- 1. CONFIGURATION ---
 st.set_page_config(
-    page_title="Data Nexus Ultimate",
-    page_icon="⚡",
+    page_title="DataFlow",
+    page_icon="🌊",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="collapsed"
 )
 
 # State Management
@@ -31,63 +25,76 @@ if 'page' not in st.session_state: st.session_state.page = 'home'
 if 'df' not in st.session_state: st.session_state.df = None
 if 'model' not in st.session_state: st.session_state.model = None
 
-# --- 2. CSS STYLING ---
+# --- 2. CLEAN & USABLE CSS ---
 st.markdown("""
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&display=swap');
     
-    /* DARK THEME CORE */
     html, body, [class*="css"] {
-        font-family: 'Inter', sans-serif;
-        background-color: #0E1117;
-        color: #e0e0e0;
+        font-family: 'Plus Jakarta Sans', sans-serif;
+        background-color: #0f1116;
+        color: #e6e6e6;
     }
     
-    /* SIDEBAR */
-    [data-testid="stSidebar"] {
-        background-color: #161b22;
-        border-right: 1px solid #30363d;
+    /* Layout */
+    .block-container { max-width: 1000px; padding-top: 3rem; }
+
+    /* Cards */
+    .glass-card {
+        background-color: #1c1f26;
+        border: 1px solid #2d313a;
+        padding: 2rem;
+        border-radius: 16px;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.2);
     }
 
-    /* CONTAINERS */
-    .block-container { max-width: 95%; padding-top: 2rem; }
-    
-    .data-card {
-        background-color: #1f242d;
-        padding: 20px;
-        border-radius: 12px;
-        border: 1px solid #30363d;
-        margin-bottom: 15px;
-    }
+    /* Headings */
+    h1, h2, h3 { font-weight: 700; color: white; letter-spacing: -0.5px; }
+    p { color: #8b949e; line-height: 1.6; }
 
-    /* BUTTONS */
+    /* Primary Button (Blue Gradient) */
     div.stButton > button {
-        background-color: #238636;
+        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
         color: white;
         border: none;
-        border-radius: 6px;
-        height: 2.8em;
+        height: 3.5rem;
+        border-radius: 10px;
         font-weight: 600;
         width: 100%;
-        transition: 0.2s;
+        transition: transform 0.2s, box-shadow 0.2s;
     }
     div.stButton > button:hover {
-        background-color: #2ea043;
         transform: translateY(-2px);
+        box-shadow: 0 10px 25px rgba(59, 130, 246, 0.4);
     }
     
-    /* SECONDARY BUTTONS (Gray) */
-    .secondary-btn > button {
-        background-color: #21262d !important;
-        border: 1px solid #30363d !important;
+    /* Secondary/Ghost Button */
+    .ghost-btn > button {
+        background: transparent;
+        border: 1px solid #3b82f6;
+        color: #3b82f6;
     }
 
-    /* METRICS */
-    div[data-testid="stMetricValue"] { color: #58a6ff; font-size: 1.6rem; }
-    div[data-testid="stMetricLabel"] { color: #8b949e; }
+    /* Tabs */
+    .stTabs [data-baseweb="tab-list"] {
+        background-color: #1c1f26;
+        padding: 5px;
+        border-radius: 12px;
+        gap: 5px;
+    }
+    .stTabs [data-baseweb="tab"] {
+        border-radius: 8px;
+        color: #8b949e;
+        border: none;
+    }
+    .stTabs [aria-selected="true"] {
+        background-color: #3b82f6;
+        color: white !important;
+    }
 
-    /* INPUTS */
-    div[data-baseweb="select"] > div { background-color: #0d1117; border-color: #30363d; }
+    /* Metrics */
+    div[data-testid="stMetricValue"] { color: #3b82f6; font-size: 2rem; }
     
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
@@ -95,380 +102,280 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# --- 3. HELPER FUNCTIONS ---
+# --- 3. HELPERS ---
 def load_data(file):
     try:
         if file.name.endswith('.csv'): return pd.read_csv(file)
         elif file.name.endswith('.xlsx'): return pd.read_excel(file)
     except: return None
 
-def download_obj(obj, name):
-    output = BytesIO()
-    pickle.dump(obj, output)
-    return output.getvalue()
-
-def download_csv(df):
+def convert_df(df):
     return df.to_csv(index=False).encode('utf-8')
 
-# --- 4. DATA STUDIO (CLEANING & PREP) ---
-def render_studio():
-    st.markdown("## 💾 Data Studio")
+def download_model(model):
+    out = BytesIO()
+    pickle.dump(model, out)
+    return out.getvalue()
+
+# --- 4. COMPONENT: DATA STUDIO ---
+def render_data():
+    st.markdown("## 💿 Data Studio")
+    st.markdown("Upload your data and let us handle the messy parts.")
     
-    c1, c2 = st.columns([1, 3], gap="large")
-    
-    with c1:
-        st.markdown('<div class="data-card">', unsafe_allow_html=True)
-        st.markdown("### Import")
-        file = st.file_uploader("Upload Dataset", type=['csv', 'xlsx'], label_visibility="collapsed")
-        if file:
-            st.session_state.df = load_data(file)
-            st.success(f"Loaded: {file.name}")
+    # Upload Section
+    with st.container():
+        st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+        uploaded_file = st.file_uploader("Drop CSV or Excel file here", type=['csv', 'xlsx'])
+        if uploaded_file:
+            st.session_state.df = load_data(uploaded_file)
+            st.success("Data loaded successfully!")
         st.markdown('</div>', unsafe_allow_html=True)
 
-        if st.session_state.df is not None:
-            df = st.session_state.df
+    if st.session_state.df is not None:
+        df = st.session_state.df
+        
+        # Quick Stats
+        c1, c2, c3, c4 = st.columns(4)
+        c1.metric("Rows", df.shape[0])
+        c2.metric("Columns", df.shape[1])
+        c3.metric("Missing", df.isna().sum().sum())
+        c4.metric("Duplicates", df.duplicated().sum())
+        
+        st.markdown("### ⚡ Actions")
+        
+        col_a, col_b = st.columns([1, 1], gap="medium")
+        
+        with col_a:
+            st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+            st.markdown("#### **One-Click Clean**")
+            st.caption("Automatically remove duplicates and fill missing values.")
             
-            # --- CLEANING TOOLS ---
-            with st.expander("🧹 Data Cleaning", expanded=True):
-                st.caption("Missing Values")
-                impute_method = st.selectbox("Imputation Method", ["Drop Rows", "Fill Mean", "Fill Median", "Fill Mode", "Fill Zero"])
+            if st.button("✨ Auto-Clean Data"):
+                # 1. Drop Duplicates
+                df = df.drop_duplicates()
+                # 2. Fill Numbers with Median
+                num_cols = df.select_dtypes(include=np.number).columns
+                df[num_cols] = df[num_cols].fillna(df[num_cols].median())
+                # 3. Fill Text with "Unknown"
+                cat_cols = df.select_dtypes(include='object').columns
+                df[cat_cols] = df[cat_cols].fillna("Unknown")
                 
-                if st.button("Apply Imputation"):
-                    if impute_method == "Drop Rows":
-                        st.session_state.df = df.dropna()
-                    elif impute_method == "Fill Zero":
-                        st.session_state.df = df.fillna(0)
-                    else:
-                        num_cols = df.select_dtypes(include=np.number).columns
-                        if impute_method == "Fill Mean":
-                            st.session_state.df[num_cols] = df[num_cols].fillna(df[num_cols].mean())
-                        elif impute_method == "Fill Median":
-                            st.session_state.df[num_cols] = df[num_cols].fillna(df[num_cols].median())
-                        elif impute_method == "Fill Mode":
-                            st.session_state.df = df.fillna(df.mode().iloc[0])
-                    st.toast("Imputation Applied!", icon="✅")
-                    st.rerun()
+                st.session_state.df = df
+                st.toast("Data cleaned automatically!", icon="✨")
+                st.rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
 
-                st.divider()
-                st.caption("Duplicates")
-                if st.button("Remove Duplicates"):
-                    orig = len(df)
-                    st.session_state.df = df.drop_duplicates()
-                    st.toast(f"Removed {orig - len(st.session_state.df)} duplicates", icon="🗑️")
-                    st.rerun()
+        with col_b:
+            st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+            st.markdown("#### **Export**")
+            st.caption("Download your processed dataset.")
+            csv = convert_df(df)
+            st.download_button("⬇️ Download CSV", csv, "clean_data.csv", "text/csv")
+            st.markdown('</div>', unsafe_allow_html=True)
 
-            # --- COLUMN MANAGER ---
-            with st.expander("🏗️ Column Manager"):
-                cols = st.multiselect("Select Columns to Drop", df.columns)
-                if st.button("Drop Columns"):
-                    st.session_state.df = df.drop(columns=cols)
-                    st.rerun()
-                
-                st.divider()
-                st.caption("Type Conversion")
-                c_name = st.selectbox("Col", df.columns, key="conv_col")
-                to_type = st.selectbox("To", ["Numeric", "String", "Datetime", "Category"], key="conv_type")
-                if st.button("Convert Type"):
-                    try:
-                        if to_type == "Numeric": st.session_state.df[c_name] = pd.to_numeric(df[c_name], errors='coerce')
-                        elif to_type == "String": st.session_state.df[c_name] = df[c_name].astype(str)
-                        elif to_type == "Datetime": st.session_state.df[c_name] = pd.to_datetime(df[c_name], errors='coerce')
-                        elif to_type == "Category": st.session_state.df[c_name] = df[c_name].astype('category')
-                        st.rerun()
-                    except Exception as e: st.error(f"Error: {e}")
+        with st.expander("👀 View Raw Data"):
+            st.dataframe(df, use_container_width=True)
 
-    with c2:
-        if st.session_state.df is not None:
-            # INFO BAR
-            df = st.session_state.df
-            m1, m2, m3, m4 = st.columns(4)
-            m1.metric("Rows", df.shape[0])
-            m2.metric("Columns", df.shape[1])
-            m3.metric("Missing", df.isna().sum().sum())
-            m4.metric("Duplicates", df.duplicated().sum())
-            
-            # TABS FOR VIEWING
-            t1, t2, t3 = st.tabs(["DataFrame", "Statistics", "Column Types"])
-            with t1: st.dataframe(df, use_container_width=True, height=500)
-            with t2: st.dataframe(df.describe(), use_container_width=True)
-            with t3: st.dataframe(df.dtypes.astype(str), use_container_width=True)
-            
-            # EXPORT
-            st.download_button("⬇️ Download Current CSV", download_csv(df), "processed_data.csv", "text/csv")
-        else:
-            st.info("Please upload a dataset to begin.")
-
-# --- 5. EDA LAB (VISUALIZATION) ---
+# --- 5. COMPONENT: EDA LAB ---
 def render_eda():
     st.markdown("## 📊 EDA Lab")
     
     if st.session_state.df is None:
-        st.warning("Upload data in Data Studio first.")
+        st.info("Please upload data in the Studio first.")
         return
 
     df = st.session_state.df
     num_cols = df.select_dtypes(include=np.number).columns.tolist()
-    cat_cols = df.select_dtypes(exclude=np.number).columns.tolist()
-    all_cols = df.columns.tolist()
-
-    t1, t2, t3, t4 = st.tabs(["Univariate", "Bivariate", "Multivariate", "Correlation"])
-
-    # 1. UNIVARIATE
+    cat_cols = df.select_dtypes(include='object').columns.tolist()
+    
+    t1, t2, t3 = st.tabs(["Distribution", "Relationships", "Correlation"])
+    
     with t1:
         c1, c2 = st.columns([1, 3])
         with c1:
-            st.markdown('<div class="data-card">', unsafe_allow_html=True)
-            u_feat = st.selectbox("Feature", all_cols)
-            u_type = st.radio("Plot Type", ["Histogram", "Box Plot", "Violin Plot", "Bar Chart"])
-            u_color = st.selectbox("Color Group", [None] + cat_cols, key="u_col")
-            st.markdown('</div>', unsafe_allow_html=True)
+            st.markdown("### Settings")
+            dist_col = st.selectbox("Column", df.columns, key="dist_sel")
+            dist_hue = st.selectbox("Color By", [None] + cat_cols, key="dist_hue")
         with c2:
-            if u_type == "Histogram": fig = px.histogram(df, x=u_feat, color=u_color, marginal="box", template="plotly_dark")
-            elif u_type == "Box Plot": fig = px.box(df, y=u_feat, color=u_color, template="plotly_dark")
-            elif u_type == "Violin Plot": fig = px.violin(df, y=u_feat, color=u_color, box=True, template="plotly_dark")
-            elif u_type == "Bar Chart": fig = px.bar(df[u_feat].value_counts().reset_index(), x='index', y=u_feat, template="plotly_dark")
-            st.plotly_chart(fig, use_container_width=True)
+            fig = px.histogram(df, x=dist_col, color=dist_hue, marginal="box", template="plotly_dark")
+            # FIXED: Unique Key
+            st.plotly_chart(fig, use_container_width=True, key="chart_dist")
 
-    # 2. BIVARIATE
     with t2:
         c1, c2 = st.columns([1, 3])
         with c1:
-            st.markdown('<div class="data-card">', unsafe_allow_html=True)
-            bi_x = st.selectbox("X Axis", all_cols, key="bi_x")
-            bi_y = st.selectbox("Y Axis", num_cols, key="bi_y")
-            bi_type = st.radio("Style", ["Scatter", "Line", "Bar"], horizontal=True)
-            bi_color = st.selectbox("Color Overlay", [None] + all_cols, key="bi_c")
-            st.markdown('</div>', unsafe_allow_html=True)
+            st.markdown("### Settings")
+            rel_x = st.selectbox("X Axis", df.columns, key="rel_x")
+            rel_y = st.selectbox("Y Axis", num_cols, key="rel_y")
+            rel_hue = st.selectbox("Color", [None] + cat_cols, key="rel_hue")
         with c2:
-            if bi_type == "Scatter": fig = px.scatter(df, x=bi_x, y=bi_y, color=bi_color, template="plotly_dark")
-            elif bi_type == "Line": fig = px.line(df, x=bi_x, y=bi_y, color=bi_color, template="plotly_dark")
-            elif bi_type == "Bar": fig = px.bar(df, x=bi_x, y=bi_y, color=bi_color, template="plotly_dark")
-            st.plotly_chart(fig, use_container_width=True)
+            fig = px.scatter(df, x=rel_x, y=rel_y, color=rel_hue, template="plotly_dark")
+            # FIXED: Unique Key
+            st.plotly_chart(fig, use_container_width=True, key="chart_rel")
 
-    # 3. MULTIVARIATE
     with t3:
-        c1, c2 = st.columns([1, 3])
-        with c1:
-            st.markdown('<div class="data-card">', unsafe_allow_html=True)
-            mul_x = st.selectbox("X", num_cols, key="m_x")
-            mul_y = st.selectbox("Y", num_cols, key="m_y")
-            mul_z = st.selectbox("Z (3D Only)", num_cols, key="m_z")
-            mul_c = st.selectbox("Color", [None] + all_cols, key="m_c")
-            mul_s = st.selectbox("Size", [None] + num_cols, key="m_s")
-            plot_3d = st.toggle("Enable 3D Plot")
-            st.markdown('</div>', unsafe_allow_html=True)
-        with c2:
-            if plot_3d:
-                fig = px.scatter_3d(df, x=mul_x, y=mul_y, z=mul_z, color=mul_c, size=mul_s, template="plotly_dark")
-            else:
-                fig = px.scatter(df, x=mul_x, y=mul_y, color=mul_c, size=mul_s, template="plotly_dark")
-            st.plotly_chart(fig, use_container_width=True)
-
-    # 4. CORRELATION
-    with t4:
-        if num_cols:
-            corr = df[num_cols].corr()
-            fig = px.imshow(corr, text_auto=True, color_continuous_scale='RdBu_r', template="plotly_dark", aspect="auto")
-            st.plotly_chart(fig, use_container_width=True, height=700)
+        if len(num_cols) > 1:
+            fig = px.imshow(df[num_cols].corr(), text_auto=True, template="plotly_dark", color_continuous_scale="RdBu_r")
+            # FIXED: Unique Key
+            st.plotly_chart(fig, use_container_width=True, key="chart_corr")
         else:
-            st.warning("No numeric columns for correlation.")
+            st.warning("Need numeric data for correlation.")
 
-# --- 6. MODEL FORGE (MACHINE LEARNING) ---
-def render_forge():
+# --- 6. COMPONENT: MODEL FORGE ---
+def render_model():
     st.markdown("## 🧠 Model Forge")
     
     if st.session_state.df is None:
-        st.warning("Upload data first.")
+        st.info("Please upload data in the Studio first.")
         return
 
-    df = st.session_state.df.copy().dropna()
-    
-    # Encoder
+    # Auto-Prep Data
+    df_ml = st.session_state.df.copy().dropna()
     le = LabelEncoder()
-    for col in df.select_dtypes(include='object').columns:
-        df[col] = le.fit_transform(df[col])
+    for col in df_ml.select_dtypes(include='object').columns:
+        df_ml[col] = le.fit_transform(df_ml[col])
 
-    c_sets, c_res = st.columns([1, 3], gap="large")
+    # Layout
+    c1, c2 = st.columns([1, 2], gap="large")
 
-    with c_sets:
-        st.markdown("### ⚙️ Configuration")
+    with c1:
+        st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+        st.markdown("### 1. Target")
+        target = st.selectbox("What do you want to predict?", df_ml.columns)
         
-        target = st.selectbox("Target (Label)", df.columns)
-        feats = st.multiselect("Features", [c for c in df.columns if c != target], default=[c for c in df.columns if c != target])
-        
-        task = st.radio("Problem Type", ["Regression", "Classification"], horizontal=True)
+        # Auto-detect task type
+        if len(df_ml[target].unique()) < 10:
+            task_type = "Classification"
+            st.caption("Detected: **Classification** (Categories)")
+        else:
+            task_type = "Regression"
+            st.caption("Detected: **Regression** (Numbers)")
+            
+        st.markdown("### 2. Model")
+        if task_type == "Classification":
+            algo = st.selectbox("Algorithm", ["Random Forest", "Logistic Regression"])
+        else:
+            algo = st.selectbox("Algorithm", ["Random Forest", "Linear Regression"])
+            
+        # Advanced Toggle
+        use_adv = st.toggle("Advanced Settings")
+        params = {}
+        if use_adv and "Random Forest" in algo:
+            params['n'] = st.slider("Trees", 10, 200, 100)
         
         st.divider()
-        st.markdown("### 🤖 Algorithm")
-        
-        model_params = {}
-        
-        if task == "Regression":
-            algo = st.selectbox("Model", ["Linear Regression", "Random Forest", "SVR (SVM)", "Neural Network (MLP)", "Gradient Boosting"])
-            
-            if algo == "Random Forest":
-                model_params['n_estimators'] = st.slider("Trees", 10, 500, 100)
-                model_params['max_depth'] = st.slider("Max Depth", 1, 50, 10)
-            elif algo == "SVR (SVM)":
-                model_params['C'] = st.slider("C (Regularization)", 0.1, 10.0, 1.0)
-                model_params['kernel'] = st.selectbox("Kernel", ['linear', 'poly', 'rbf'])
-            elif algo == "Gradient Boosting":
-                model_params['lr'] = st.slider("Learning Rate", 0.01, 0.5, 0.1)
-                model_params['n_estimators'] = st.slider("Estimators", 50, 300, 100)
-            elif algo == "Neural Network (MLP)":
-                model_params['hidden'] = st.text_input("Layers (e.g. 100,50)", "100,50")
-                model_params['iter'] = st.slider("Max Iter", 200, 2000, 500)
+        train_btn = st.button("🚀 Train Model")
+        st.markdown('</div>', unsafe_allow_html=True)
 
-        else: # Classification
-            algo = st.selectbox("Model", ["Logistic Regression", "Random Forest", "SVC (SVM)", "Neural Network (MLP)", "KNN"])
-            
-            if algo == "Random Forest":
-                model_params['n_estimators'] = st.slider("Trees", 10, 500, 100)
-            elif algo == "KNN":
-                model_params['k'] = st.slider("Neighbors (K)", 1, 20, 5)
-            elif algo == "SVC (SVM)":
-                model_params['C'] = st.slider("C", 0.1, 10.0, 1.0)
-            elif algo == "Neural Network (MLP)":
-                model_params['hidden'] = st.text_input("Layers", "100,50")
-
-        st.divider()
-        st.markdown("### 🧪 Preprocessing")
-        scale_opt = st.selectbox("Scaling", ["None", "StandardScaler", "MinMaxScaler"])
-        split_size = st.slider("Test Size", 0.1, 0.5, 0.2)
-        
-        train_btn = st.button("🚀 TRAIN MODEL")
-
-    with c_res:
+    with c2:
         if train_btn:
-            if not feats:
-                st.error("Please select at least one feature.")
-            else:
-                X = df[feats]
-                y = df[target]
+            with st.spinner("Training model..."):
+                X = df_ml.drop(columns=[target])
+                y = df_ml[target]
                 
-                # Split
-                X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=split_size, random_state=42)
+                X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+                scaler = StandardScaler()
+                X_train = scaler.fit_transform(X_train)
+                X_test = scaler.transform(X_test)
                 
-                # Scaling
-                if scale_opt == "StandardScaler":
-                    scaler = StandardScaler()
-                    X_train = scaler.fit_transform(X_train)
-                    X_test = scaler.transform(X_test)
-                elif scale_opt == "MinMaxScaler":
-                    scaler = MinMaxScaler()
-                    X_train = scaler.fit_transform(X_train)
-                    X_test = scaler.transform(X_test)
-                
-                # Model Init
-                model = None
-                
-                # --- REGRESSION LOGIC ---
-                if task == "Regression":
-                    if algo == "Linear Regression": model = LinearRegression()
-                    elif algo == "Random Forest": model = RandomForestRegressor(n_estimators=model_params['n_estimators'], max_depth=model_params['max_depth'])
-                    elif algo == "SVR (SVM)": model = SVR(C=model_params['C'], kernel=model_params['kernel'])
-                    elif algo == "Gradient Boosting": model = GradientBoostingRegressor(learning_rate=model_params['lr'], n_estimators=model_params['n_estimators'])
-                    elif algo == "Neural Network (MLP)": 
-                        layers = tuple(map(int, model_params['hidden'].split(',')))
-                        model = MLPRegressor(hidden_layer_sizes=layers, max_iter=model_params['iter'])
+                # Model Logic
+                if task_type == "Classification":
+                    if algo == "Random Forest": model = RandomForestClassifier(n_estimators=params.get('n', 100))
+                    else: model = LogisticRegression()
                     
                     model.fit(X_train, y_train)
                     preds = model.predict(X_test)
-                    
-                    r2 = r2_score(y_test, preds)
-                    mae = mean_absolute_error(y_test, preds)
-                    
-                    st.success("Model Trained Successfully!")
-                    m1, m2 = st.columns(2)
-                    m1.metric("R² Score", f"{r2:.4f}")
-                    m2.metric("MAE", f"{mae:.4f}")
-                    
-                    # Plot
-                    fig = px.scatter(x=y_test, y=preds, labels={'x': 'Actual', 'y': 'Predicted'}, template="plotly_dark", title="Regression Fit")
-                    fig.add_shape(type="line", x0=y.min(), y0=y.min(), x1=y.max(), y1=y.max(), line=dict(color="red", dash="dash"))
-                    st.plotly_chart(fig, use_container_width=True)
-
-                # --- CLASSIFICATION LOGIC ---
-                else:
-                    if algo == "Logistic Regression": model = LogisticRegression()
-                    elif algo == "Random Forest": model = RandomForestClassifier(n_estimators=model_params['n_estimators'])
-                    elif algo == "KNN": model = KNeighborsClassifier(n_neighbors=model_params['k'])
-                    elif algo == "SVC (SVM)": model = SVC(C=model_params['C'])
-                    elif algo == "Neural Network (MLP)":
-                        layers = tuple(map(int, model_params['hidden'].split(',')))
-                        model = MLPClassifier(hidden_layer_sizes=layers)
-                    
-                    model.fit(X_train, y_train)
-                    preds = model.predict(X_test)
-                    
                     acc = accuracy_score(y_test, preds)
-                    st.success("Model Trained Successfully!")
-                    st.metric("Accuracy", f"{acc:.2%}")
                     
-                    # Confusion Matrix
+                    st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+                    st.success(f"Training Complete! Accuracy: {acc:.1%}")
+                    
+                    # Confusion Matrix Chart
                     cm = confusion_matrix(y_test, preds)
-                    fig = px.imshow(cm, text_auto=True, template="plotly_dark", title="Confusion Matrix")
-                    st.plotly_chart(fig, use_container_width=True)
+                    fig = px.imshow(cm, text_auto=True, title="Confusion Matrix", template="plotly_dark")
+                    # FIXED: Unique Key
+                    st.plotly_chart(fig, use_container_width=True, key="chart_cm")
+                    st.markdown('</div>', unsafe_allow_html=True)
 
-                # Save Model
-                st.session_state.model = model
+                else: # Regression
+                    if algo == "Random Forest": model = RandomForestRegressor(n_estimators=params.get('n', 100))
+                    else: model = LinearRegression()
+                    
+                    model.fit(X_train, y_train)
+                    preds = model.predict(X_test)
+                    r2 = r2_score(y_test, preds)
+                    
+                    st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+                    st.success(f"Training Complete! R² Score: {r2:.3f}")
+                    
+                    # Pred vs Actual Chart
+                    fig = px.scatter(x=y_test, y=preds, labels={'x': 'Actual', 'y': 'Predicted'}, title="Actual vs Predicted", template="plotly_dark")
+                    fig.add_shape(type="line", x0=y.min(), y0=y.min(), x1=y.max(), y1=y.max(), line=dict(color="red", dash="dash"))
+                    # FIXED: Unique Key
+                    st.plotly_chart(fig, use_container_width=True, key="chart_reg")
+                    st.markdown('</div>', unsafe_allow_html=True)
                 
-                st.download_button("⬇️ Download Trained Model (.pkl)", download_obj(model, "model"), "model.pkl")
+                # Save
+                st.session_state.model = model
+                b_model = download_model(model)
+                st.download_button("Download Model (.pkl)", b_model, "model.pkl")
 
 # ==========================================
-# 7. NAVIGATION
+# 7. MAIN NAVIGATION
 # ==========================================
+
+# Sidebar
 with st.sidebar:
-    st.title("Navigation")
+    st.header("Navigation")
     
-    # Map selection to session state
-    nav_map = {"Home": "home", "Data Studio": "data", "EDA Lab": "eda", "Model Forge": "model"}
-    rev_map = {v: k for k, v in nav_map.items()}
+    # Map friendly names to session IDs
+    nav_options = {"Home": "home", "Data Studio": "data", "EDA Lab": "eda", "Model Forge": "model"}
     
-    current = rev_map.get(st.session_state.page, "Home")
-    selected = st.radio("Go to:", list(nav_map.keys()), index=list(nav_map.keys()).index(current))
+    # Reverse lookup for default index
+    current_key = next((k for k, v in nav_options.items() if v == st.session_state.page), "Home")
     
-    if nav_map[selected] != st.session_state.page:
-        st.session_state.page = nav_map[selected]
+    selected = st.radio("Go to", list(nav_options.keys()), index=list(nav_options.keys()).index(current_key))
+    
+    if nav_options[selected] != st.session_state.page:
+        st.session_state.page = nav_options[selected]
         st.rerun()
 
-# ==========================================
-# 8. ROUTING
-# ==========================================
+# --- ROUTING ---
 if st.session_state.page == 'home':
-    st.title("DATA NEXUS ULTIMATE")
-    st.markdown("### The No-Code Analytics Powerhouse")
-    st.markdown("---")
+    st.markdown("<br><br>", unsafe_allow_html=True)
+    st.title("DataFlow")
+    st.markdown("### Automated Analytics Platform")
+    st.markdown("<br>", unsafe_allow_html=True)
     
     c1, c2, c3 = st.columns(3, gap="medium")
     
     with c1:
-        st.markdown('<div class="data-card">', unsafe_allow_html=True)
-        st.markdown("### 💾 Data Studio")
-        st.markdown("Clean, impute, transform types, and filter your datasets.")
-        if st.button("Launch Studio", key="h_d"):
-            st.session_state.page = "data"
+        st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+        st.markdown("### 💿 Data")
+        st.caption("Clean & Prepare")
+        if st.button("Start Studio", key="h_d"):
+            st.session_state.page = 'data'
             st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
 
     with c2:
-        st.markdown('<div class="data-card">', unsafe_allow_html=True)
-        st.markdown("### 📊 EDA Lab")
-        st.markdown("Univariate, Bivariate, 3D Plotting, and Correlation heatmaps.")
-        if st.button("Launch EDA", key="h_e"):
-            st.session_state.page = "eda"
+        st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+        st.markdown("### 📊 Visualize")
+        st.caption("Explore Trends")
+        if st.button("Start EDA", key="h_e"):
+            st.session_state.page = 'eda'
             st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
 
     with c3:
-        st.markdown('<div class="data-card">', unsafe_allow_html=True)
-        st.markdown("### 🧠 Model Forge")
-        st.markdown("Train Random Forests, Neural Networks, SVMs with hyperparameter tuning.")
-        if st.button("Launch Forge", key="h_m"):
-            st.session_state.page = "model"
+        st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+        st.markdown("### 🧠 Predict")
+        st.caption("Train Models")
+        if st.button("Start AI", key="h_m"):
+            st.session_state.page = 'model'
             st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
 
-elif st.session_state.page == 'data': render_studio()
+elif st.session_state.page == 'data': render_data()
 elif st.session_state.page == 'eda': render_eda()
-elif st.session_state.page == 'model': render_forge()
+elif st.session_state.page == 'model': render_model()
