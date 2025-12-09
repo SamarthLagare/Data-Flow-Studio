@@ -8,9 +8,9 @@ from io import BytesIO
 
 # Machine Learning
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler, LabelEncoder, MinMaxScaler
+from sklearn.preprocessing import StandardScaler, LabelEncoder
 from sklearn.linear_model import LinearRegression, LogisticRegression, Ridge, Lasso
-from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier, GradientBoostingRegressor, GradientBoostingClassifier, AdaBoostRegressor, AdaBoostClassifier
+from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier, GradientBoostingRegressor, GradientBoostingClassifier
 from sklearn.svm import SVR, SVC
 from sklearn.neighbors import KNeighborsRegressor, KNeighborsClassifier
 from sklearn.tree import DecisionTreeRegressor, DecisionTreeClassifier
@@ -19,8 +19,8 @@ from sklearn.metrics import accuracy_score, r2_score, mean_squared_error, mean_a
 
 # --- 1. CONFIGURATION ---
 st.set_page_config(
-    page_title="DataFlow Supreme",
-    page_icon="💠",
+    page_title="DataFlow Aether",
+    page_icon="🔮",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -28,121 +28,110 @@ st.set_page_config(
 # State Management
 if 'page' not in st.session_state: st.session_state.page = 'Home'
 if 'df' not in st.session_state: st.session_state.df = None
-if 'history' not in st.session_state: st.session_state.history = []
-if 'best_model' not in st.session_state: st.session_state.best_model = None
+if 'model' not in st.session_state: st.session_state.model = None
 
-# --- 2. PREMIUM CSS ---
+# --- 2. GLASSMORPHISM CSS ---
 st.markdown("""
     <style>
-    /* IMPORTS */
-    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap');
     
-    /* CORE THEME */
-    html, body, [class*="css"] {
-        font-family: 'Outfit', sans-serif;
-        background-color: #0b0e11;
-        color: #e2e8f0;
+    /* BACKGROUND GRADIENT */
+    .stApp {
+        background: radial-gradient(circle at 10% 20%, rgb(15, 23, 42) 0%, rgb(30, 41, 59) 90%);
+        font-family: 'Inter', sans-serif;
+        color: white;
     }
     
-    /* LAYOUT */
-    .block-container { 
-        max-width: 1250px; 
-        padding-top: 2.5rem; 
-        padding-bottom: 5rem; 
-    }
-
     /* GLASS CARDS */
     .glass-card {
-        background: rgba(30, 41, 59, 0.4);
-        backdrop-filter: blur(10px);
-        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: rgba(255, 255, 255, 0.05);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
         padding: 24px;
-        border-radius: 16px;
-        box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+        border-radius: 20px;
         margin-bottom: 20px;
-        transition: transform 0.2s ease, border-color 0.2s ease;
+        transition: transform 0.2s;
     }
     .glass-card:hover {
-        border-color: #6366f1;
-        transform: translateY(-2px);
+        transform: translateY(-3px);
+        border-color: rgba(255, 255, 255, 0.3);
+    }
+
+    /* SIDEBAR GLASS */
+    [data-testid="stSidebar"] {
+        background: rgba(15, 23, 42, 0.85);
+        backdrop-filter: blur(20px);
+        border-right: 1px solid rgba(255, 255, 255, 0.1);
     }
 
     /* HEADINGS */
-    h1, h2, h3 { 
-        font-weight: 700; 
-        color: #f8fafc; 
-        letter-spacing: -0.5px;
+    h1 {
+        background: linear-gradient(to right, #00c6ff, #0072ff);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        font-weight: 800;
+        letter-spacing: -1px;
     }
-    h1 { font-size: 3rem; background: -webkit-linear-gradient(45deg, #6366f1, #a855f7); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-    p { color: #94a3b8; font-size: 1.05rem; line-height: 1.6; }
+    h2, h3 { color: #f1f5f9; font-weight: 600; }
+    p { color: #94a3b8; }
 
     /* BUTTONS */
     div.stButton > button {
-        background: #1e293b;
-        color: #f8fafc;
-        border: 1px solid #334155;
-        border-radius: 10px;
-        height: 3.2rem;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        color: white;
+        border-radius: 12px;
+        height: 3.5rem;
         font-weight: 600;
-        width: 100%;
-        transition: all 0.2s;
+        transition: all 0.3s ease;
+        backdrop-filter: blur(5px);
     }
     div.stButton > button:hover {
-        background: #334155;
-        border-color: #6366f1;
-        color: #6366f1;
+        background: rgba(255, 255, 255, 0.15);
+        border-color: #00c6ff;
+        box-shadow: 0 0 15px rgba(0, 198, 255, 0.3);
     }
     
-    /* PRIMARY ACTION BUTTON */
-    .primary-btn > button {
-        background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%) !important;
+    /* PRIMARY GLOW BUTTON */
+    .glow-btn > button {
+        background: linear-gradient(135deg, #00c6ff 0%, #0072ff 100%) !important;
         border: none !important;
-        color: white !important;
-        box-shadow: 0 10px 20px -10px rgba(99, 102, 241, 0.5);
+        box-shadow: 0 0 20px rgba(0, 114, 255, 0.4);
     }
-    .primary-btn > button:hover {
+    .glow-btn > button:hover {
         transform: scale(1.02);
-        box-shadow: 0 15px 30px -10px rgba(99, 102, 241, 0.6);
+        box-shadow: 0 0 30px rgba(0, 114, 255, 0.6);
     }
 
-    /* SIDEBAR */
-    [data-testid="stSidebar"] {
-        background-color: #0f172a;
-        border-right: 1px solid #1e293b;
-    }
-    
-    /* METRICS */
-    div[data-testid="stMetricValue"] {
-        font-size: 2rem;
-        font-weight: 700;
-        color: #818cf8;
-    }
-    div[data-testid="stMetricLabel"] {
-        font-size: 0.9rem;
-        color: #64748b;
-    }
-
-    /* TABS */
-    .stTabs [data-baseweb="tab-list"] {
-        background-color: #1e293b;
-        padding: 4px;
-        border-radius: 12px;
-        gap: 0px;
-    }
-    .stTabs [data-baseweb="tab"] {
-        height: 3rem;
-        border-radius: 8px;
-        color: #94a3b8;
-    }
-    .stTabs [aria-selected="true"] {
-        background-color: #6366f1;
+    /* INPUTS & SELECTS */
+    div[data-baseweb="select"] > div {
+        background-color: rgba(255, 255, 255, 0.05);
+        border-color: rgba(255, 255, 255, 0.1);
         color: white;
     }
+    
+    /* TABS */
+    .stTabs [data-baseweb="tab-list"] {
+        background: rgba(255, 255, 255, 0.03);
+        padding: 5px;
+        border-radius: 12px;
+        border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    .stTabs [aria-selected="true"] {
+        background-color: #0072ff;
+        color: white;
+        border-radius: 8px;
+    }
 
-    /* HIDE JUNK */
+    /* REMOVE JUNK */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
+    
+    /* METRICS */
+    div[data-testid="stMetricValue"] { color: #00c6ff; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -156,428 +145,317 @@ def load_data(file):
 def convert_df(df):
     return df.to_csv(index=False).encode('utf-8')
 
-def calculate_quality(df):
-    if df is None: return 0
-    score = 100
-    # Penalize for missing
-    missing_pct = df.isna().mean().mean()
-    score -= (missing_pct * 100)
-    # Penalize for duplicates
-    dupe_pct = df.duplicated().mean()
-    score -= (dupe_pct * 100)
-    return max(0, int(score))
-
-# --- 4. SIDEBAR NAVIGATION ---
+# --- 4. SIDEBAR ---
 with st.sidebar:
-    st.image("https://cdn-icons-png.flaticon.com/512/1169/1169345.png", width=50)
-    st.title("DataFlow")
-    st.caption("v21.0 | Enterprise Edition")
+    st.title("🔮 DataFlow")
+    st.caption("Aether Edition")
     st.markdown("---")
     
-    # NAVIGATION
-    nav_options = ["Home", "1. Auto-Pilot", "2. Data Studio", "3. EDA Lab", "4. Model Forge"]
+    pages = ["Home", "Auto-Pilot", "Data Studio", "EDA Lab", "Model Forge"]
     
-    # Sync
-    idx_map = {"Home":0, "Auto-Pilot":1, "Data Studio":2, "EDA Lab":3, "Model Forge":4}
-    current_idx = idx_map.get(st.session_state.page, 0)
+    # Sync Logic
+    curr = st.session_state.page
+    idx = pages.index(curr) if curr in pages else 0
+    sel = st.radio("MENU", pages, index=idx, label_visibility="collapsed")
     
-    selected = st.radio("MAIN MENU", nav_options, index=current_idx, label_visibility="collapsed")
-    
-    # Routing
-    target_page = selected.replace("1. ", "").replace("2. ", "").replace("3. ", "").replace("4. ", "")
-    if target_page != st.session_state.page:
-        st.session_state.page = target_page
+    if sel != st.session_state.page:
+        st.session_state.page = sel
         st.rerun()
 
-    # DATA STATUS WIDGET
     st.markdown("---")
-    st.markdown("**PROJECT STATUS**")
-    
     if st.session_state.df is not None:
-        quality = calculate_quality(st.session_state.df)
-        rows, cols = st.session_state.df.shape
-        
-        c1, c2 = st.columns(2)
-        c1.metric("Rows", rows)
-        c2.metric("Cols", cols)
-        
-        # Quality Bar
-        st.write("Data Health")
-        st.progress(quality / 100)
-        st.caption(f"Quality Score: {quality}%")
-        
-        if quality < 100:
-            st.warning("Optimization Recommended")
+        r, c = st.session_state.df.shape
+        st.success(f"Data: {r} rows | {c} cols")
     else:
-        st.info("Waiting for data...")
+        st.info("No Data Loaded")
 
-# --- 5. COMPONENT: AUTO-PILOT ---
+# --- 5. COMPONENT: OMNI-PILOT (AUTOMATE EVERYTHING) ---
 def render_autopilot():
-    st.markdown("## ⚡ Auto-Pilot")
-    st.markdown("Automated cleaning, analysis, and model tournament.")
+    st.header("⚡ Omni-Pilot")
+    st.markdown("One click to Clean, Visualize, and Model.")
     
     if st.session_state.df is None:
         with st.container():
             st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-            uploaded_file = st.file_uploader("Upload Dataset", type=['csv', 'xlsx'])
-            if uploaded_file:
-                st.session_state.df = load_data(uploaded_file)
+            f = st.file_uploader("Upload Data", type=['csv', 'xlsx'])
+            if f:
+                st.session_state.df = load_data(f)
                 st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
         return
 
     df = st.session_state.df
     
-    # CONFIG
-    c1, c2 = st.columns([1, 2], gap="large")
+    c1, c2 = st.columns([1, 3])
     with c1:
         st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+        st.markdown("### Config")
         target = st.selectbox("Target Variable", df.columns)
         st.markdown("<br>", unsafe_allow_html=True)
-        st.markdown('<div class="primary-btn">', unsafe_allow_html=True)
-        start_btn = st.button("🚀 LAUNCH TOURNAMENT")
+        st.markdown('<div class="glow-btn">', unsafe_allow_html=True)
+        if st.button("🚀 LAUNCH OMNI-PILOT"):
+            st.session_state.run_auto = True
         st.markdown('</div></div>', unsafe_allow_html=True)
 
-    if start_btn:
-        with st.status("🧠 Processing Data Stream...", expanded=True) as status:
-            # 1. CLEANING
-            status.write("Cleaning pipeline initiated...")
+    if st.session_state.get('run_auto'):
+        with st.status("🔮 AI Processing Pipeline...", expanded=True) as status:
+            
+            # --- 1. AUTO CLEAN ---
+            status.write("🧹 Scrubbing Data...")
             clean_df = df.copy().drop_duplicates()
             num = clean_df.select_dtypes(include=np.number).columns
             cat = clean_df.select_dtypes(include='object').columns
             clean_df[num] = clean_df[num].fillna(clean_df[num].median())
             clean_df[cat] = clean_df[cat].fillna("Unknown")
+            st.session_state.df = clean_df
             
-            # 2. ENCODING
-            status.write("Encoding features...")
+            # --- 2. AUTO VIZ ---
+            status.write("📊 Generating 10 Analytics Views...")
+            figs = []
+            
+            # 1. Distribution
+            figs.append(px.histogram(clean_df, x=target, title=f"1. Target Distribution ({target})", template="plotly_dark", color_discrete_sequence=['#00c6ff']))
+            
+            # 2. Correlation
+            if len(num) > 1:
+                figs.append(px.imshow(clean_df[num].corr(), text_auto=True, title="2. Correlation Heatmap", template="plotly_dark", color_continuous_scale='Viridis'))
+            
+            # 3. Scatter (First 2 num cols)
+            if len(num) >= 2:
+                figs.append(px.scatter(clean_df, x=num[0], y=num[1], color=target if target in cat else None, title=f"3. Scatter: {num[0]} vs {num[1]}", template="plotly_dark"))
+            
+            # 4. Box Plot (Target vs Cat)
+            if len(cat) > 0 and target in num:
+                figs.append(px.box(clean_df, x=cat[0], y=target, title=f"4. Box Plot: {target} by {cat[0]}", template="plotly_dark"))
+            
+            # 5. Line (Index vs Target)
+            figs.append(px.line(clean_df, y=target, title="5. Target Trend (Index)", template="plotly_dark"))
+            
+            # 6. Violin
+            figs.append(px.violin(clean_df, y=target, box=True, title="6. Target Density (Violin)", template="plotly_dark"))
+            
+            # 7. 3D Scatter
+            if len(num) >= 3:
+                figs.append(px.scatter_3d(clean_df, x=num[0], y=num[1], z=num[2], color=target if target in cat else None, title="7. 3D Analysis", template="plotly_dark"))
+            
+            # 8. Density Heatmap
+            if len(num) >= 2:
+                figs.append(px.density_heatmap(clean_df, x=num[0], y=num[1], title="8. Density Heatmap", template="plotly_dark"))
+                
+            # 9. Bar Count (if cat target) or Bar Avg
+            if target in cat:
+                figs.append(px.bar(clean_df[target].value_counts(), title="9. Class Balance", template="plotly_dark"))
+            
+            # 10. Pie
+            if target in cat:
+                figs.append(px.pie(clean_df, names=target, title="10. Target Composition", template="plotly_dark"))
+
+            # --- 3. AUTO MODEL ---
+            status.write("🧠 Running Model Tournament...")
             ml_df = clean_df.copy()
             le = LabelEncoder()
             for c in ml_df.select_dtypes(include='object').columns:
                 ml_df[c] = le.fit_transform(ml_df[c].astype(str))
                 
-            # 3. SPLIT
             X = ml_df.drop(columns=[target])
             y = ml_df[target]
-            X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+            X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
             scaler = StandardScaler()
             X_train = scaler.fit_transform(X_train)
             X_test = scaler.transform(X_test)
             
-            # 4. TOURNAMENT
-            is_class = len(ml_df[target].unique()) < 20
-            models = {}
+            is_class = len(ml_df[target].unique()) < 15
             
-            if is_class:
-                models = {
-                    "Logistic Regression": LogisticRegression(),
-                    "Random Forest": RandomForestClassifier(),
-                    "Gradient Boosting": GradientBoostingClassifier(),
-                    "SVC": SVC(),
-                    "Decision Tree": DecisionTreeClassifier()
-                }
-                metric = "Accuracy"
-            else:
-                models = {
-                    "Linear Regression": LinearRegression(),
-                    "Random Forest": RandomForestRegressor(),
-                    "Gradient Boosting": GradientBoostingRegressor(),
-                    "Ridge": Ridge(),
-                    "Lasso": Lasso()
-                }
-                metric = "R² Score"
+            models = {
+                "Random Forest": RandomForestClassifier() if is_class else RandomForestRegressor(),
+                "Gradient Boosting": GradientBoostingClassifier() if is_class else GradientBoostingRegressor(),
+                "Linear/Logistic": LogisticRegression() if is_class else LinearRegression(),
+                "Decision Tree": DecisionTreeClassifier() if is_class else DecisionTreeRegressor(),
+                "K-Neighbors": KNeighborsClassifier() if is_class else KNeighborsRegressor()
+            }
             
-            results = []
-            best_score = -np.inf
+            best_score = -999
+            best_model = None
+            leaderboard = []
             
             for name, model in models.items():
-                status.write(f"Training {name}...")
                 model.fit(X_train, y_train)
                 preds = model.predict(X_test)
-                if is_class: score = accuracy_score(y_test, preds)
-                else: score = r2_score(y_test, preds)
-                
-                results.append({"Model": name, "Score": score})
+                score = accuracy_score(y_test, preds) if is_class else r2_score(y_test, preds)
+                leaderboard.append({"Model": name, "Score": score})
                 if score > best_score:
                     best_score = score
-                    st.session_state.best_model = model
+                    best_model = model
             
-            status.update(label="Tournament Complete!", state="complete")
-            st.session_state.df = clean_df # Save cleaned data
-            
-            # RESULTS
-            res_df = pd.DataFrame(results).sort_values(by="Score", ascending=False)
-            
-            st.divider()
-            c_res1, c_res2 = st.columns([1, 1], gap="large")
-            
-            with c_res1:
-                st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-                st.markdown("### 🏆 Champion Model")
-                winner = res_df.iloc[0]
-                st.success(f"**{winner['Model']}**")
-                st.metric(metric, f"{winner['Score']:.2%}" if is_class else f"{winner['Score']:.4f}")
-                st.markdown('</div>', unsafe_allow_html=True)
-                
-            with c_res2:
-                st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-                st.markdown("### 📊 Leaderboard")
-                fig = px.bar(res_df, x="Score", y="Model", orientation='h', template="plotly_dark", color="Score", title="Performance Comparison")
-                st.plotly_chart(fig, use_container_width=True)
-                st.markdown('</div>', unsafe_allow_html=True)
+            st.session_state.model = best_model
+            status.update(label="Omni-Pilot Complete!", state="complete")
+
+        # --- REPORT DISPLAY ---
+        st.markdown("### 🏆 Results")
+        
+        # Leaderboard
+        c_lead, c_win = st.columns([2, 1])
+        with c_lead:
+            st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+            lb_df = pd.DataFrame(leaderboard).sort_values("Score", ascending=False)
+            fig_lb = px.bar(lb_df, x="Score", y="Model", orientation='h', color="Score", template="plotly_dark", title="Model Tournament Results")
+            st.plotly_chart(fig_lb, use_container_width=True)
+            st.markdown('</div>', unsafe_allow_html=True)
+        
+        with c_win:
+            st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+            st.metric("🏆 Winner", lb_df.iloc[0]['Model'])
+            st.metric("Score", f"{lb_df.iloc[0]['Score']:.4f}")
+            st.markdown('</div>', unsafe_allow_html=True)
+
+        # 10 Graphs Gallery
+        st.markdown("### 📸 Auto-Generated Insights")
+        for i in range(0, len(figs), 2):
+            gc1, gc2 = st.columns(2)
+            with gc1:
+                if i < len(figs): st.plotly_chart(figs[i], use_container_width=True)
+            with gc2:
+                if i+1 < len(figs): st.plotly_chart(figs[i+1], use_container_width=True)
 
 # --- 6. COMPONENT: DATA STUDIO ---
-def render_data_studio():
+def render_studio():
     st.header("💿 Data Studio")
-    
     if st.session_state.df is None:
         with st.container():
             st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-            uploaded_file = st.file_uploader("Upload CSV or Excel", type=['csv', 'xlsx'])
-            if uploaded_file:
-                st.session_state.df = load_data(uploaded_file)
+            f = st.file_uploader("Upload", type=['csv', 'xlsx'])
+            if f:
+                st.session_state.df = load_data(f)
                 st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
         return
 
     df = st.session_state.df
     
-    # METRICS ROW
-    m1, m2, m3, m4 = st.columns(4)
+    st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+    m1, m2, m3 = st.columns(3)
     m1.metric("Rows", df.shape[0])
-    m2.metric("Columns", df.shape[1])
-    m3.metric("Missing", df.isna().sum().sum())
-    m4.metric("Duplicates", df.duplicated().sum())
+    m2.metric("Missing", df.isna().sum().sum())
+    m3.metric("Duplicates", df.duplicated().sum())
+    st.markdown('</div>', unsafe_allow_html=True)
     
-    st.markdown("### Workbench")
-    
-    t1, t2, t3 = st.tabs(["Cleaning", "Transformation", "Export"])
+    t1, t2 = st.tabs(["Cleaning", "Export"])
     
     with t1:
         c1, c2 = st.columns(2)
         with c1:
-            st.markdown("**Smart Cleaning**")
-            col = st.selectbox("Target Column", df.columns)
-            if st.button("Fill Missing (Median/Mode)"):
+            st.markdown("**Imputation**")
+            col = st.selectbox("Column", df.columns)
+            if st.button("Fill Median"):
                 if pd.api.types.is_numeric_dtype(df[col]):
                     st.session_state.df[col] = df[col].fillna(df[col].median())
-                else:
-                    st.session_state.df[col] = df[col].fillna(df[col].mode()[0])
-                st.rerun()
+                    st.rerun()
         with c2:
-            st.markdown("**Deduplication**")
-            if st.button("Remove All Duplicates"):
+            st.markdown("**Maintenance**")
+            if st.button("Drop Duplicates"):
                 st.session_state.df = df.drop_duplicates()
                 st.rerun()
-
+                
     with t2:
-        c1, c2 = st.columns(2)
-        with c1:
-            st.markdown("**Filter Data**")
-            fil_col = st.selectbox("Filter Column", df.columns)
-            val = st.text_input("Value to Keep")
-            if st.button("Apply Filter"):
-                # Try numeric conversion
-                try: val = float(val)
-                except: pass
-                st.session_state.df = df[df[fil_col] == val]
-                st.rerun()
-        with c2:
-            st.markdown("**Drop Column**")
-            drop_c = st.selectbox("Column to Drop", df.columns)
-            if st.button("Delete Column"):
-                st.session_state.df = df.drop(columns=[drop_c])
-                st.rerun()
-
-    with t3:
-        st.download_button("⬇️ Download Processed Dataset", convert_df(df), "data_flow_export.csv", "text/csv")
-        
-    st.markdown("### Data Preview")
-    st.dataframe(df.head(100), use_container_width=True)
+        st.download_button("Download CSV", convert_df(df), "clean_data.csv")
+    
+    st.dataframe(df.head(50), use_container_width=True)
 
 # --- 7. COMPONENT: EDA LAB ---
 def render_eda():
     st.header("📊 EDA Lab")
-    if st.session_state.df is None: st.warning("Upload data first"); return
+    if st.session_state.df is None: st.warning("No Data"); return
     
     df = st.session_state.df
-    all_cols = df.columns.tolist()
-    num_cols = df.select_dtypes(include=np.number).columns.tolist()
+    cols = df.columns.tolist()
     
     st.markdown('<div class="glass-card">', unsafe_allow_html=True)
     c1, c2 = st.columns([1, 2])
     with c1:
-        st.markdown("### Configuration")
-        chart = st.selectbox("Chart Type", ["Histogram", "Box", "Violin", "Scatter", "Line", "Bar", "Area", "Pie", "Heatmap", "3D Scatter", "Funnel"])
+        chart = st.selectbox("Chart Type", ["Histogram", "Box", "Scatter", "Line", "Bar", "Pie", "Heatmap", "3D Scatter"])
     with c2:
-        st.markdown("### Axes")
         ac1, ac2, ac3 = st.columns(3)
-        x = ac1.selectbox("X Axis", all_cols)
-        y = ac2.selectbox("Y Axis", num_cols if chart != "Pie" else all_cols)
-        c = ac3.selectbox("Color", [None] + all_cols)
+        x = ac1.selectbox("X", cols)
+        y = ac2.selectbox("Y", cols)
+        c = ac3.selectbox("Color", [None] + cols)
     st.markdown('</div>', unsafe_allow_html=True)
     
-    # PLOTTING ENGINE
-    try:
-        if chart == "Histogram": fig = px.histogram(df, x=x, color=c, template="plotly_dark", marginal="box")
-        elif chart == "Box": fig = px.box(df, x=x, y=y, color=c, template="plotly_dark")
-        elif chart == "Violin": fig = px.violin(df, x=x, y=y, color=c, box=True, template="plotly_dark")
-        elif chart == "Scatter": fig = px.scatter(df, x=x, y=y, color=c, template="plotly_dark", size=y if y in num_cols else None)
-        elif chart == "Line": fig = px.line(df, x=x, y=y, color=c, template="plotly_dark")
-        elif chart == "Bar": fig = px.bar(df, x=x, y=y, color=c, template="plotly_dark")
-        elif chart == "Area": fig = px.area(df, x=x, y=y, color=c, template="plotly_dark")
-        elif chart == "Pie": fig = px.pie(df, names=x, template="plotly_dark")
-        elif chart == "Heatmap": fig = px.density_heatmap(df, x=x, y=y, template="plotly_dark")
-        elif chart == "3D Scatter": 
-            z = st.selectbox("Z Axis", num_cols)
-            fig = px.scatter_3d(df, x=x, y=y, z=z, color=c, template="plotly_dark")
-        elif chart == "Funnel": fig = px.funnel(df, x=x, y=y, color=c, template="plotly_dark")
-        
-        st.plotly_chart(fig, use_container_width=True)
-        
-        # Auto-Stats
-        with st.expander("Show Statistics for Selected Data"):
-            st.write(df[[x, y] if y else [x]].describe())
-            
-    except Exception as e:
-        st.error(f"Could not render chart: {e}")
+    if chart == "Histogram": fig = px.histogram(df, x=x, color=c, template="plotly_dark")
+    elif chart == "Box": fig = px.box(df, x=x, y=y, color=c, template="plotly_dark")
+    elif chart == "Scatter": fig = px.scatter(df, x=x, y=y, color=c, template="plotly_dark")
+    elif chart == "Line": fig = px.line(df, x=x, y=y, color=c, template="plotly_dark")
+    elif chart == "Bar": fig = px.bar(df, x=x, y=y, color=c, template="plotly_dark")
+    elif chart == "Pie": fig = px.pie(df, names=x, template="plotly_dark")
+    elif chart == "Heatmap": fig = px.density_heatmap(df, x=x, y=y, template="plotly_dark")
+    elif chart == "3D Scatter": fig = px.scatter_3d(df, x=x, y=y, z=c if c else x, color=c, template="plotly_dark")
+    
+    st.plotly_chart(fig, use_container_width=True)
 
 # --- 8. COMPONENT: MODEL FORGE ---
 def render_model():
     st.header("🧠 Model Forge")
-    if st.session_state.df is None: st.warning("Upload data first"); return
+    if st.session_state.df is None: st.warning("No Data"); return
     
     df = st.session_state.df.copy().dropna()
-    
-    # Auto-Encode
     le = LabelEncoder()
     for c in df.select_dtypes(include='object').columns:
         df[c] = le.fit_transform(df[c].astype(str))
-        
-    c1, c2 = st.columns([1, 2], gap="large")
     
+    c1, c2 = st.columns([1, 2])
     with c1:
         st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-        st.markdown("### 1. Setup")
         target = st.selectbox("Target", df.columns)
         feats = st.multiselect("Features", [c for c in df.columns if c != target], default=[c for c in df.columns if c != target])
-        
-        # Type Detect
-        task = "Regression" if len(df[target].unique()) > 20 else "Classification"
-        st.caption(f"Detected Task: **{task}**")
-        
-        st.markdown("### 2. Model")
-        if task == "Regression":
-            algo = st.selectbox("Algorithm", ["Linear Regression", "Random Forest", "Gradient Boosting", "AdaBoost", "SVR", "Ridge", "Lasso", "Decision Tree", "KNN"])
-        else:
-            algo = st.selectbox("Algorithm", ["Logistic Regression", "Random Forest", "Gradient Boosting", "AdaBoost", "SVC", "Decision Tree", "KNN", "Gaussian NB"])
-            
-        st.markdown("### 3. Tuning")
-        split = st.slider("Train Split", 0.1, 0.9, 0.8)
-        
-        st.markdown('<div class="primary-btn">', unsafe_allow_html=True)
-        train = st.button("🚀 Train Model")
+        algo = st.selectbox("Algorithm", ["Random Forest", "Linear/Logistic", "Gradient Boosting"])
+        st.markdown('<div class="glow-btn">', unsafe_allow_html=True)
+        train = st.button("Train Manually")
         st.markdown('</div></div>', unsafe_allow_html=True)
+        
+    if train:
+        X, y = df[feats], df[target]
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
+        
+        is_class = len(df[target].unique()) < 15
+        if algo == "Random Forest": model = RandomForestClassifier() if is_class else RandomForestRegressor()
+        elif algo == "Linear/Logistic": model = LogisticRegression() if is_class else LinearRegression()
+        else: model = GradientBoostingClassifier() if is_class else GradientBoostingRegressor()
+        
+        model.fit(X_train, y_train)
+        score = model.score(X_test, y_test)
+        
+        with c2:
+            st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+            st.metric("Model Score", f"{score:.4f}")
+            st.success("Training Successful")
+            
+            b = BytesIO()
+            pickle.dump(model, b)
+            st.download_button("Download Model", b.getvalue(), "model.pkl")
+            st.markdown('</div>', unsafe_allow_html=True)
 
-    with c2:
-        if train:
-            with st.spinner("Training..."):
-                X = df[feats]
-                y = df[target]
-                X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=split)
-                scaler = StandardScaler()
-                X_train = scaler.fit_transform(X_train)
-                X_test = scaler.transform(X_test)
-                
-                model = None
-                # MODEL FACTORY
-                if algo == "Linear Regression": model = LinearRegression()
-                elif algo == "Logistic Regression": model = LogisticRegression()
-                elif algo == "Random Forest": 
-                    model = RandomForestRegressor() if task == "Regression" else RandomForestClassifier()
-                elif algo == "Gradient Boosting":
-                    model = GradientBoostingRegressor() if task == "Regression" else GradientBoostingClassifier()
-                elif algo == "AdaBoost":
-                    model = AdaBoostRegressor() if task == "Regression" else AdaBoostClassifier()
-                elif algo == "SVR": model = SVR()
-                elif algo == "SVC": model = SVC()
-                elif algo == "KNN":
-                    model = KNeighborsRegressor() if task == "Regression" else KNeighborsClassifier()
-                elif algo == "Ridge": model = Ridge()
-                elif algo == "Lasso": model = Lasso()
-                elif algo == "Decision Tree":
-                    model = DecisionTreeRegressor() if task == "Regression" else DecisionTreeClassifier()
-                elif algo == "Gaussian NB": model = GaussianNB()
-                
-                model.fit(X_train, y_train)
-                preds = model.predict(X_test)
-                
-                # METRICS
-                st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-                st.markdown(f"### Performance: {algo}")
-                
-                if task == "Classification":
-                    acc = accuracy_score(y_test, preds)
-                    st.metric("Accuracy", f"{acc:.2%}")
-                    fig = px.imshow(confusion_matrix(y_test, preds), text_auto=True, title="Confusion Matrix", template="plotly_dark")
-                    st.plotly_chart(fig, use_container_width=True)
-                else:
-                    r2 = r2_score(y_test, preds)
-                    mae = mean_absolute_error(y_test, preds)
-                    c_m1, c_m2 = st.columns(2)
-                    c_m1.metric("R² Score", f"{r2:.4f}")
-                    c_m2.metric("MAE", f"{mae:.4f}")
-                    
-                    fig = px.scatter(x=y_test, y=preds, labels={'x':'Actual', 'y':'Predicted'}, title="Actual vs Predicted", template="plotly_dark")
-                    fig.add_shape(type="line", line=dict(dash='dash', color='red'), x0=y.min(), y0=y.max(), x1=y.min(), y1=y.max())
-                    st.plotly_chart(fig, use_container_width=True)
-                
-                st.markdown('</div>', unsafe_allow_html=True)
-                
-                # DOWNLOAD
-                b_model = BytesIO()
-                pickle.dump(model, b_model)
-                st.download_button("⬇️ Download Trained Model", b_model.getvalue(), "model.pkl")
-
-# --- 9. PAGE ROUTING ---
-
+# --- 9. ROUTING ---
 if st.session_state.page == 'Home':
     st.markdown("<br><br>", unsafe_allow_html=True)
-    st.markdown("<h1 style='text-align: center; margin-bottom: 10px;'>DataFlow Supreme</h1>", unsafe_allow_html=True)
-    st.markdown("<p style='text-align: center; margin-bottom: 50px;'>The Ultimate AI-Powered Analytics Platform</p>", unsafe_allow_html=True)
+    st.title("DataFlow Aether")
+    st.markdown("### The Ultimate AI Analytics Platform")
     
-    c1, c2, c3 = st.columns(3, gap="medium")
-    
+    c1, c2 = st.columns(2)
     with c1:
         st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-        st.markdown("### 💿 Data Studio")
-        st.write("Advanced cleaning, filtering, and quality scoring.")
-        if st.button("Launch Studio"): st.session_state.page = "Data Studio"; st.rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown("### ⚡ Omni-Pilot")
+        st.caption("Clean, Visualize & Model in 1 Click.")
+        st.markdown('<div class="glow-btn">', unsafe_allow_html=True)
+        if st.button("Start Auto-Pilot"): st.session_state.page = "Auto-Pilot"; st.rerun()
+        st.markdown('</div></div>', unsafe_allow_html=True)
         
     with c2:
         st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-        st.markdown("### 📊 EDA Lab")
-        st.write("12+ Interactive visualizations with instant insights.")
-        if st.button("Launch Lab"): st.session_state.page = "EDA Lab"; st.rerun()
+        st.markdown("### 🛠️ Manual Studio")
+        st.caption("Granular control over every step.")
+        if st.button("Enter Studio"): st.session_state.page = "Data Studio"; st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
-        
-    with c3:
-        st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-        st.markdown("### 🧠 Model Forge")
-        st.write("Train 10+ algorithms manually or use Auto-Pilot.")
-        if st.button("Launch Forge"): st.session_state.page = "Model Forge"; st.rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
-        
-    # Auto-Pilot Banner
-    st.markdown("<br>", unsafe_allow_html=True)
-    st.markdown('<div class="glass-card" style="text-align:center; border-color: #6366f1;">', unsafe_allow_html=True)
-    st.markdown("### ⚡ Want speed?")
-    st.write("Use Auto-Pilot to clean, analyze, and find the best model in one click.")
-    st.markdown('<div class="auto-btn" style="width: 50%; margin: 0 auto;">', unsafe_allow_html=True)
-    if st.button("Start Auto-Pilot"): st.session_state.page = "Auto-Pilot"; st.rerun()
-    st.markdown('</div></div>', unsafe_allow_html=True)
 
 elif st.session_state.page == 'Auto-Pilot': render_autopilot()
-elif st.session_state.page == 'Data Studio': render_data_studio()
+elif st.session_state.page == 'Data Studio': render_studio()
 elif st.session_state.page == 'EDA Lab': render_eda()
 elif st.session_state.page == 'Model Forge': render_model()
